@@ -37,6 +37,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--tag", default="dev")
     p.add_argument("--max-prompts", type=int, default=None, help="cap prompts per domain")
     p.add_argument("--max-blocks", type=int, default=8, help="cap blocks per prompt")
+    p.add_argument(
+        "--block-size",
+        type=int,
+        default=None,
+        help="native diffusion canvas length (sets config.canvas_length); default 256",
+    )
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--mock", action="store_true", help="use synthetic models (no GPU)")
     p.add_argument(
@@ -251,6 +257,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     cfg.models.drafter_quant = args.drafter_quant
     cfg.models.verifier_quant = args.verifier_quant
+    if args.block_size is not None:
+        cfg.sampler.block_size = args.block_size
     run(cfg, mock_agree_rate=args.mock_agree_rate)
     return 0
 

@@ -41,6 +41,41 @@ capped by content length — most drafts are accepted to the end of the output.
 deterministic decoding rather than the stock stochastic temperature schedule
 (configurable — see below). Treat this as a measurement note, not a paper.
 
+## Block-size sweep: where each domain pays off
+
+The stock 256-token canvas is the wrong block size for everything but
+structured. Re-segmenting the per-position agreement data into smaller
+proposals (offline, from `blocks.jsonl`, via `scripts/block_size_sweep.py`)
+gives an implied speedup as a function of block size `B` — accepted tokens per
+weight pass, where **1.0 = autoregressive break-even**:
+
+| B | structured | code | chat | prose |
+|---|---|---|---|---|
+| 4 | 2.9 | 2.6 | 1.9 | 1.05 |
+| 8 | 4.6 | 3.8 | 2.2 | 0.98 |
+| 16 | 6.3 | **4.5** | 2.1 | 0.72 |
+| 32 | 7.5 | 4.2 | 1.5 | 0.52 |
+| 64 | 8.0 | 2.9 | 0.9 | 0.35 |
+| 256 | **8.3** | 0.76 | 0.38 | 0.21 |
+
+Peak per domain: **structured 8.3× (large B), code 4.5× @ B≈16, chat 2.2× @
+B≈8, prose ~1.05× @ B≈4.** Tuning the block size flips code from a 0.76× *loss*
+at the stock 256 to a 4.5× win; only prose stays marginal. structured rises
+with `B` and plateaus because its drafts are accepted to the end of the (short)
+output — content-capped, so longer structured outputs would push it higher, not
+lower.
+
+**The two-pass floor caveat.** Every speculative round costs at least two weight
+passes — one drafter denoise pass and one verifier pass — so realized speedup at
+block size `B` cannot exceed `B/2` (you accept at most `B` tokens per round).
+The sweep holds total denoise cost constant (it re-segments the drafter's
+*existing* trajectory rather than re-canvassing after each rejection), so it
+ignores that floor and **overstates the smallest blocks**: any entry above `B/2`
+— e.g. structured and code at `B=4`, structured at `B=8` — is an optimistic
+upper bound. Read the *shape* and the mid-range optima (`B≈8–16`), not the
+small-`B` tail. Validate empirically by running with `SamplerConfig.block_size`
+set to a candidate `B` and reading the real `tokens_per_forward`.
+
 ## How it's measured
 
 1. **Draft.** DiffusionGemma generates via its public
@@ -51,7 +86,9 @@ deterministic decoding rather than the stock stochastic temperature schedule
    recording, per position, whether the verifier's argmax matches the draft,
    plus the verifier's logprob of the drafted token.
 3. **Score.** Per-token agreement, first-disagreement position (= accepted
-   prefix length), histograms, and an implied speedup estimate, per block /
+   prefix length), histograms, and an implied speedup estimate — accepted
+   tokens per weight pass, with the drafter's per-block denoise-pass count
+   taken from the public `tokens_per_forward` output field — per block /
    prompt / domain. Trailing-pad runs are trimmed before scoring; because
    the verifier pass is causally masked, trimming a trailing pad run cannot
    change any content-position result.
@@ -124,11 +161,12 @@ python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained
 
 ### Options worth knowing
 
-- `--capture-internals` adds per-block denoise-step counts and commit-time
-  entropy (feeds the speedup and entropy~disagreement columns; otherwise
-  those report `n/a`). It hooks the installed `modeling_diffusiongemma.py`
-  denoise loop — inspect the source first, attribute names are not stable
-  on a model this new.
+- The **speedup** column is populated by default from the public
+  `tokens_per_forward` output field — no source hook needed.
+- `--capture-internals` adds per-position commit-time entropy, which feeds the
+  **entropy~disagreement** column (otherwise `n/a`). It hooks the installed
+  `modeling_diffusiongemma.py` denoise loop — inspect the source first,
+  attribute names are not stable on a model this new.
 - `SamplerConfig.deterministic=False` measures under the stock stochastic
   temperature schedule (0.8→0.4) instead of greedy. Record which you used.
 - `--drafter-quant int8` / `--verifier-quant int8` work but barely shrink

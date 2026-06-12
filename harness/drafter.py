@@ -117,6 +117,15 @@ class RealDiffusionGemmaDrafter:
         device = next(model.parameters()).device
         block = self.sampler.block_size
 
+        # Native canvas size. The model builds its denoising canvas from
+        # config.canvas_length at generation time (modeling_diffusion_gemma.py:
+        # `size=(input_ids.shape[0], self.config.canvas_length)`), so setting it
+        # to block_size yields a NATIVE block_size-token canvas rather than a
+        # re-segmented 256 one. block_size defaults to 256 (stock behavior).
+        cfg_obj = getattr(model, "config", None)
+        if cfg_obj is not None and getattr(cfg_obj, "canvas_length", None) != block:
+            cfg_obj.canvas_length = block
+
         # Reproducibility: diffusion decoding can be stochastic even when the
         # token argmax is taken — fix the seed per call.
         torch.manual_seed(self.seed)
