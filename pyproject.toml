@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diffusiongemma-agreement-harness"
+version = "0.1.0"
+description = "Phase 1 measurement harness: per-token agreement between DiffusionGemma drafts and Gemma 4 greedy predictions"
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "Proprietary" }
+
+# NOTE on pinning: the hard constraint is a transformers build that ships the
+# `DiffusionGemmaForBlockDiffusion` model code (DiffusionGemma released
+# 2026-06-10). The model card's instruction is `pip install -U transformers`.
+# The floor below is conservative; pin transformers to the exact release you
+# verify on the GPU box and record it in the run notes.
+dependencies = [
+    "torch>=2.4",
+    "transformers>=4.57",          # MUST include diffusiongemma; `pip install -U transformers`
+    "accelerate>=0.34",
+    "safetensors>=0.4",
+    "pillow>=10",                  # DiffusionGemma/Gemma 4 are multimodal; AutoProcessor needs PIL
+    "torchvision",                 # Gemma 4 image_processing imports torchvision.transforms.v2
+]
+
+[project.optional-dependencies]
+# FP8 / int8 quantization. bitsandbytes is the int8 fallback per the plan.
+quant = [
+    "bitsandbytes>=0.43",
+]
+dev = [
+    "pytest>=8",
+]
+
+[project.scripts]
+agreement-harness = "harness.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["harness*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Put the project root on sys.path so `harness` imports without an editable
+# install. Lets plain `pytest` work, not just `python -m pytest`.
+pythonpath = ["."]

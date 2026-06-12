@@ -1,0 +1,50 @@
+{"id": "structured-001", "prompt": "Extract the name, age, and city from this sentence and return them as JSON with keys \"name\", \"age\", \"city\": \"Maria Lopez is 34 and lives in Seville.\""}
+{"id": "structured-002", "prompt": "Convert this list into a JSON array of objects with keys \"item\" and \"qty\":\n- apples x4\n- bread x2\n- milk x1"}
+{"id": "structured-003", "prompt": "Return a JSON object mapping each US state abbreviation to its full name for: CA, TX, NY."}
+{"id": "structured-004", "prompt": "Format the following as a Markdown table with columns Name, Role, Start Year:\nAlice, Engineer, 2019; Bob, Designer, 2021; Carol, PM, 2018."}
+{"id": "structured-005", "prompt": "Parse this log line into JSON with keys \"timestamp\", \"level\", \"message\": \"2026-06-11T09:14:02Z ERROR disk full on /dev/sda1\"."}
+{"id": "structured-006", "prompt": "Produce a YAML document describing a person with fields name (string), languages (list), and active (boolean), for: Yuki, speaks Japanese and English, currently active."}
+{"id": "structured-007", "prompt": "Given the CSV header \"id,price,qty\" and the row \"7,3.50,4\", return a JSON object with the row's values and an added \"total\" field equal to price*qty."}
+{"id": "structured-008", "prompt": "Return strictly valid JSON: an object with key \"primes\" whose value is an array of the first five prime numbers."}
+{"id": "structured-009", "prompt": "Extract all email addresses from this text and return them as a JSON array of strings: \"Contact ana@example.com or sales@store.co for help; ignore noreply@.\""}
+{"id": "structured-010", "prompt": "Convert this key:value text into a JSON object: \"name: Orion; type: telescope; aperture_mm: 130; price: 249.99\"."}
+{"id": "structured-011", "prompt": "Return a JSON array of objects with keys \"day\" and \"high_c\" for: Mon 21, Tue 23, Wed 19."}
+{"id": "structured-012", "prompt": "Reformat this address into JSON with keys \"street\", \"city\", \"state\", \"zip\": \"742 Evergreen Terrace, Springfield, IL 62704\"."}
+{"id": "structured-013", "prompt": "Given \"3 red apples, 2 green pears, 5 yellow bananas\", return a JSON array of objects with keys \"count\", \"color\", \"fruit\"."}
+{"id": "structured-014", "prompt": "Produce a Markdown table from this data with columns Country, Capital: France/Paris, Japan/Tokyo, Kenya/Nairobi."}
+{"id": "structured-015", "prompt": "Return strictly valid JSON describing a book with keys \"title\", \"author\", \"year\", \"genres\" (array): Dune by Frank Herbert, 1965, science fiction and adventure."}
+{"id": "structured-016", "prompt": "Parse \"GET /api/users 200 134ms\" into JSON with keys \"method\", \"path\", \"status\" (int), \"latency_ms\" (int)."}
+{"id": "structured-017", "prompt": "Convert this Markdown bullet list into a JSON array of strings:\n- onboard new hire\n- update docs\n- review PR #42"}
+{"id": "structured-018", "prompt": "Return a JSON object with keys \"min\", \"max\", \"mean\" computed from these numbers: 4, 8, 15, 16, 23, 42."}
+{"id": "structured-019", "prompt": "Given \"John Smith, 555-0142, john@acme.com\", return JSON with keys \"name\", \"phone\", \"email\"."}
+{"id": "structured-020", "prompt": "Produce a TOML snippet for a config with a [server] table containing host = \"0.0.0.0\" and port = 8080."}
+{"id": "structured-021", "prompt": "Extract the hashtags from this post and return them as a JSON array (without the # symbol): \"Loved the trip! #travel #Japan #foodie\"."}
+{"id": "structured-022", "prompt": "Return strictly valid JSON: an array of three objects, each with keys \"n\" and \"square\", for n = 1, 2, 3."}
+{"id": "structured-023", "prompt": "Convert this 24-hour time list into a JSON array of 12-hour strings with AM/PM: 09:00, 13:30, 23:45."}
+{"id": "structured-024", "prompt": "Given the sentence \"The order #1007 shipped on 2026-05-02 to Berlin.\", return JSON with keys \"order_id\" (int), \"ship_date\", \"destination\"."}
+{"id": "structured-025", "prompt": "Format these as a JSON object mapping ISO currency code to symbol: USD, EUR, GBP, JPY."}
+{"id": "structured-026", "prompt": "Return a Markdown table with columns Task, Status, Owner from: deploy/done/Sam, tests/in progress/Lee, docs/todo/Kim."}
+{"id": "structured-027", "prompt": "Parse \"v2.4.1\" into JSON with keys \"major\", \"minor\", \"patch\" (all integers)."}
+{"id": "structured-028", "prompt": "Convert this comma list into a JSON object counting each item: \"apple, apple, pear, apple, pear\"."}
+{"id": "structured-029", "prompt": "Return strictly valid JSON describing an event with keys \"name\", \"date\", \"attendees\" (array of strings): Launch Party, 2026-07-01, attendees Ada and Grace and Alan."}
+{"id": "structured-030", "prompt": "Given \"lat 37.7749, lon -122.4194\", return JSON with numeric keys \"latitude\" and \"longitude\"."}
+{"id": "structured-031", "prompt": "Convert this recipe line into JSON with keys \"ingredient\", \"amount\", \"unit\": \"2 cups flour\"."}
+{"id": "structured-032", "prompt": "Return a JSON array of objects with keys \"word\" and \"length\" for each word in: \"the quick brown fox\"."}
+{"id": "structured-033", "prompt": "Produce strictly valid JSON for a traffic light state machine: an object mapping each color (\"red\", \"green\", \"yellow\") to the next color."}
+{"id": "structured-034", "prompt": "Extract numbers from \"Room 204, floor 2, 35 seats\" and return JSON with keys \"room\", \"floor\", \"seats\" (all ints)."}
+{"id": "structured-035", "prompt": "Convert this name list into a JSON array of objects with keys \"first\" and \"last\": \"Ada Lovelace, Alan Turing, Grace Hopper\"."}
+{"id": "structured-036", "prompt": "Return a Markdown table of the first four powers of two with columns Exponent and Value (2^0 through 2^3)."}
+{"id": "structured-037", "prompt": "Given \"temp=21C humidity=48% wind=12kph\", return JSON with keys \"temp_c\", \"humidity_pct\", \"wind_kph\" (all ints)."}
+{"id": "structured-038", "prompt": "Return strictly valid JSON: an object with key \"fibonacci\" whose value is an array of the first eight Fibonacci numbers."}
+{"id": "structured-039", "prompt": "Convert this schedule into a JSON array of objects with keys \"start\", \"end\", \"title\": \"09:00-10:00 Standup; 10:00-11:30 Design review\"."}
+{"id": "structured-040", "prompt": "Parse the query string \"?page=2&sort=name&desc=true\" into a JSON object of its parameters."}
+{"id": "structured-041", "prompt": "Given \"Invoice 88: 3 widgets at $12.50 each\", return JSON with keys \"invoice\" (int), \"quantity\" (int), \"unit_price\" (number), \"total\" (number)."}
+{"id": "structured-042", "prompt": "Return a JSON object grouping these animals by class: \"shark, sparrow, salmon, eagle\" into keys \"fish\" and \"bird\"."}
+{"id": "structured-043", "prompt": "Convert \"RGB(255, 99, 71)\" into a JSON object with keys \"r\", \"g\", \"b\" and an added \"hex\" field."}
+{"id": "structured-044", "prompt": "Return strictly valid JSON for a to-do item with keys \"id\", \"text\", \"done\" (boolean): id 5, \"buy milk\", not done."}
+{"id": "structured-045", "prompt": "Format this comparison as a Markdown table with columns Plan, Price, Seats: Free/$0/1, Team/$20/5, Business/$50/20."}
+{"id": "structured-046", "prompt": "Given \"The package weighs 2.5 kg and costs 9.99 EUR\", return JSON with keys \"weight_kg\" (number), \"price\" (number), \"currency\"."}
+{"id": "structured-047", "prompt": "Convert this list of pairs into a JSON object: \"a=1, b=2, c=3\"."}
+{"id": "structured-048", "prompt": "Return a JSON array of objects with keys \"letter\" and \"position\" for each letter in the word \"cat\" (1-indexed)."}
+{"id": "structured-049", "prompt": "Parse \"2026-06-11 14:05:09\" into JSON with keys \"year\", \"month\", \"day\", \"hour\", \"minute\", \"second\" (all ints)."}
+{"id": "structured-050", "prompt": "Return strictly valid JSON describing a playlist with keys \"name\" and \"tracks\" (array of objects with \"title\" and \"minutes\"): \"Focus\", with Rain (3) and Drift (5)."}

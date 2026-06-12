@@ -1,0 +1,50 @@
+{"id": "code-001", "prompt": "Write a Python function `is_palindrome(s: str) -> bool` that returns True if the string is a palindrome, ignoring case and non-alphanumeric characters."}
+{"id": "code-002", "prompt": "Implement `def fib(n: int) -> int` returning the nth Fibonacci number iteratively. Assume n >= 0."}
+{"id": "code-003", "prompt": "Write a function `merge_sorted(a: list[int], b: list[int]) -> list[int]` that merges two ascending-sorted lists into one ascending-sorted list."}
+{"id": "code-004", "prompt": "Edit this function to handle an empty list without raising:\n\ndef average(xs):\n    return sum(xs) / len(xs)"}
+{"id": "code-005", "prompt": "Write `def count_words(text: str) -> dict[str, int]` that returns a case-insensitive word frequency count, splitting on whitespace."}
+{"id": "code-006", "prompt": "Implement a Python function `binary_search(arr: list[int], target: int) -> int` returning the index of target or -1 if absent."}
+{"id": "code-007", "prompt": "Write `def flatten(nested: list) -> list` that flattens an arbitrarily nested list of integers into a flat list."}
+{"id": "code-008", "prompt": "Add type hints and a docstring to this function:\n\ndef clamp(x, lo, hi):\n    return max(lo, min(x, hi))"}
+{"id": "code-009", "prompt": "Write `def fizzbuzz(n: int) -> list[str]` returning the FizzBuzz sequence from 1 to n as a list of strings."}
+{"id": "code-010", "prompt": "Implement `def reverse_words(s: str) -> str` that reverses the order of words in a sentence while preserving single spaces."}
+{"id": "code-011", "prompt": "Write a recursive function `def factorial(n: int) -> int` for n >= 0, returning 1 for n == 0."}
+{"id": "code-012", "prompt": "Implement `def gcd(a: int, b: int) -> int` using the Euclidean algorithm."}
+{"id": "code-013", "prompt": "Write `def is_prime(n: int) -> bool` that returns True if n is a prime number."}
+{"id": "code-014", "prompt": "Implement `def sum_even(xs: list[int]) -> int` returning the sum of the even numbers in the list."}
+{"id": "code-015", "prompt": "Write `def max_of_three(a: float, b: float, c: float) -> float` without using the built-in max."}
+{"id": "code-016", "prompt": "Implement `def celsius_to_fahrenheit(c: float) -> float` converting Celsius to Fahrenheit."}
+{"id": "code-017", "prompt": "Write `def count_vowels(s: str) -> int` counting the vowels (a, e, i, o, u) in a string, case-insensitive."}
+{"id": "code-018", "prompt": "Implement `def dedupe(xs: list) -> list` that removes duplicates while preserving first-seen order."}
+{"id": "code-019", "prompt": "Write `def to_title_case(s: str) -> str` that capitalizes the first letter of each word."}
+{"id": "code-020", "prompt": "Implement `def sum_digits(n: int) -> int` returning the sum of the decimal digits of a non-negative integer."}
+{"id": "code-021", "prompt": "Write `def second_largest(xs: list[int]) -> int` returning the second-largest distinct value. Raise ValueError if there are fewer than two distinct values."}
+{"id": "code-022", "prompt": "Implement `def transpose(matrix: list[list[int]]) -> list[list[int]]` returning the transpose of a rectangular matrix."}
+{"id": "code-023", "prompt": "Write `def roman_to_int(s: str) -> int` converting a Roman numeral string to an integer."}
+{"id": "code-024", "prompt": "Implement `def int_to_roman(n: int) -> str` converting an integer (1-3999) to a Roman numeral."}
+{"id": "code-025", "prompt": "Write `def is_anagram(a: str, b: str) -> bool` that returns True if the two strings are anagrams, ignoring case and spaces."}
+{"id": "code-026", "prompt": "Implement `def rle_encode(s: str) -> str` performing run-length encoding, e.g. 'aaabb' -> 'a3b2'."}
+{"id": "code-027", "prompt": "Write `def caesar(s: str, shift: int) -> str` applying a Caesar cipher to letters, leaving non-letters unchanged."}
+{"id": "code-028", "prompt": "Implement `def moving_average(xs: list[float], k: int) -> list[float]` returning the simple moving average over a window of size k."}
+{"id": "code-029", "prompt": "Write `def chunk(xs: list, size: int) -> list[list]` that splits a list into consecutive chunks of the given size."}
+{"id": "code-030", "prompt": "Implement `def deep_get(d: dict, path: str, default=None)` that looks up a dotted key path like 'a.b.c' in nested dicts."}
+{"id": "code-031", "prompt": "Fix the off-by-one bug in this function:\n\ndef last_n(xs, n):\n    return xs[len(xs) - n - 1:]"}
+{"id": "code-032", "prompt": "Add error handling so this returns None instead of raising on bad input:\n\ndef parse_int(s):\n    return int(s)"}
+{"id": "code-033", "prompt": "Rewrite this recursive function iteratively:\n\ndef sum_to(n):\n    if n == 0:\n        return 0\n    return n + sum_to(n - 1)"}
+{"id": "code-034", "prompt": "Fix the mutable default argument bug:\n\ndef append_item(item, items=[]):\n    items.append(item)\n    return items"}
+{"id": "code-035", "prompt": "Make this function pure (no print, return the result instead):\n\ndef greet(name):\n    print(f'Hello, {name}!')"}
+{"id": "code-036", "prompt": "Implement `def bubble_sort(xs: list[int]) -> list[int]` returning a new sorted list using bubble sort."}
+{"id": "code-037", "prompt": "Write `def quicksort(xs: list[int]) -> list[int]` returning a new sorted list using quicksort."}
+{"id": "code-038", "prompt": "Implement `def hamming(a: str, b: str) -> int` returning the Hamming distance between two equal-length strings."}
+{"id": "code-039", "prompt": "Write `def valid_parentheses(s: str) -> bool` checking that (), [], and {} are balanced and correctly nested."}
+{"id": "code-040", "prompt": "Implement `def two_sum(nums: list[int], target: int) -> tuple[int, int] | None` returning the indices of two numbers that sum to target."}
+{"id": "code-041", "prompt": "Write `def group_by_parity(xs: list[int]) -> dict[str, list[int]]` returning a dict with keys 'even' and 'odd'."}
+{"id": "code-042", "prompt": "Implement `def longest_common_prefix(strs: list[str]) -> str` returning the longest common leading substring."}
+{"id": "code-043", "prompt": "Write `def rotate(xs: list, k: int) -> list` that rotates a list right by k positions."}
+{"id": "code-044", "prompt": "Implement `def is_armstrong(n: int) -> bool` checking whether n equals the sum of its digits each raised to the number of digits."}
+{"id": "code-045", "prompt": "Write `def collatz_length(n: int) -> int` returning the number of steps to reach 1 in the Collatz sequence."}
+{"id": "code-046", "prompt": "Implement `def primes_up_to(n: int) -> list[int]` using the Sieve of Eratosthenes."}
+{"id": "code-047", "prompt": "Write `def diagonal_sum(matrix: list[list[int]]) -> int` returning the sum of both diagonals of a square matrix (count the center once)."}
+{"id": "code-048", "prompt": "Implement `def flatten_keys(d: dict, sep: str = '.') -> dict` that flattens a nested dict into dotted keys."}
+{"id": "code-049", "prompt": "Write a `memoize` decorator that caches a function's return values by its positional arguments."}
+{"id": "code-050", "prompt": "Implement `def top_k_frequent(words: list[str], k: int) -> list[str]` returning the k most frequent words, ties broken alphabetically."}
