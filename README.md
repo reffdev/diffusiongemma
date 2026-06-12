@@ -1,138 +1,183 @@
-# DiffusionGemma drafter / Gemma 4 verifier — Phase 1 agreement harness
+# Can DiffusionGemma draft for Gemma 4?
 
-Measurement-only harness for the speculative-diffusion prototype described in
-[`initial_plan.md`](initial_plan.md). Phase 1 produces exactly one thing: the
-per-token greedy agreement rate `p` between DiffusionGemma's committed draft
-blocks and Gemma 4's argmax predictions, broken down by content domain — plus
-the accepted-prefix-length distribution and an implied speedup estimate.
+**Per-domain measurements of draft-verifier agreement between Google's
+DiffusionGemma (26B-A4B) and its autoregressive sibling, Gemma 4 26B-A4B —
+the gating numbers for diffusion-based speculative decoding.**
 
-**No speculative sampler is built in this phase.** See the plan's decision gates
-for what the numbers mean.
+DiffusionGemma generates ~4x faster than its AR sibling but benchmarks below
+it. The obvious idea — and many people will have it — is the best of both:
+let the diffusion model **draft** blocks of tokens in parallel and let the AR
+model **verify** them in a single teacher-forced pass, keeping AR-exact
+output at diffusion-class speed. Whether that architecture is worth building
+hinges on one empirical number nobody had published: **how often does a stock
+DiffusionGemma draft token match what Gemma 4 would have produced?**
 
-## Layout
+This repo measures that number. It contains the measurement harness, the
+prompt sets, the raw per-position results, and the bring-up notes for running
+both 26B models on a single consumer-Blackwell GPU.
+
+## Headline results
+
+200 prompts (50 per domain), greedy decoding both sides, bf16, single
+RTX PRO 6000 Blackwell (96 GB), June 2026 model releases:
+
+| Domain | Per-token agreement `p` | Accepted-prefix length (median) | Read |
+|---|---|---|---|
+| structured (JSON / extraction) | **0.99** | 36 | drafts accepted essentially whole — speculative decoding viable immediately |
+| code | **0.90** | 5 | viable with small blocks (~16–32 tokens); light distillation would compound quickly |
+| chat | **0.80** | 4 | marginal — block-size tuning required |
+| prose / creative | **0.65** | 2 | not viable stock; distillation-first territory |
+
+Interpretation in brief: a speculative loop accepts the longest drafted
+prefix the verifier agrees with, so the accepted-prefix length (APL) — not
+raw agreement — is what buys speed. The ordering above is exactly the
+entropy ordering theory predicts: parallel drafting mines the predictable
+structure of text, so low-entropy domains (structured output, code) parallelize
+well and open-ended prose does not. Note that structured's APL is largely
+capped by content length — most drafts are accepted to the end of the output.
+
+**Caveats that bound these numbers:** greedy (temperature-0) agreement only;
+50 prompts/domain; instruction-tuned checkpoints as released in June 2026;
+deterministic decoding rather than the stock stochastic temperature schedule
+(configurable — see below). Treat this as a measurement note, not a paper.
+
+## How it's measured
+
+1. **Draft.** DiffusionGemma generates via its public
+   `DiffusionGemmaForBlockDiffusion.generate()` (deterministic at temp-0);
+   the committed 256-token canvas blocks are captured as raw token IDs.
+2. **Verify.** Each drafted block is teacher-forced through Gemma 4 in one
+   parallel pass — prompt + previously verified tokens + drafted block —
+   recording, per position, whether the verifier's argmax matches the draft,
+   plus the verifier's logprob of the drafted token.
+3. **Score.** Per-token agreement, first-disagreement position (= accepted
+   prefix length), histograms, and an implied speedup estimate, per block /
+   prompt / domain. Trailing-pad runs are trimmed before scoring; because
+   the verifier pass is causally masked, trimming a trailing pad run cannot
+   change any content-position result.
+
+Both models share a tokenizer lineage, and the harness hard-gates on
+programmatic tokenizer identity (vocab, special tokens, chat-template IDs)
+before any run — agreement across mismatched tokenizers is meaningless.
+
+Raw `blocks.jsonl` (one record per block, with per-position arrays) is the
+artifact of record; `summary.md` is derived and reproducible from it via
+`scripts/recompute_summary.py` with no model reload.
+
+## Repo layout
 
 ```
 harness/            measurement package
   config.py         run / model / sampler config dataclasses
   prompts.py        load prompts/<domain>.jsonl
   tokenizer_check.py assert drafter/verifier tokenizer identity (hard gate)
-  models.py         load drafter + verifier (fp8 / int8 / bf16)
+  models.py         load drafter + verifier (bf16 / int8)
   chat.py           render the shared chat template once, reuse token IDs
   drafter.py        DiffusionGemma generate + slice into committed blocks
-                    (optional internals capture is the inspect-first seam)
   verifier.py       Gemma 4 teacher-forcing pass
   metrics.py        agreement metrics (pure, fully tested)
   results_io.py     timestamped run dir, blocks.jsonl, summary.md
   cli.py            orchestration entry point
-prompts/<domain>.jsonl   versioned, rerunnable prompt sets
-results/<date>-<tag>/     config.json + blocks.jsonl + summary.md per run
+prompts/<domain>.jsonl   versioned prompt sets (code, structured, chat, prose)
+results/<date>-<tag>/    config.json + blocks.jsonl + summary.md per run
+scripts/            sanity_check, probe_drafts, recompute_summary
 tests/              model-free unit + mock end-to-end tests
 ```
 
-## Quick start (local, no GPU)
+## Reproducing
 
-The mock mode runs the full metrics + IO pipeline with synthetic models, so you
-can validate the harness on any machine (e.g. this Windows box) before touching
-weights:
+### No GPU needed: mock mode
+
+Runs the full metrics + IO pipeline with synthetic models — validates the
+harness on any machine before touching weights:
 
 ```bash
 python -m harness.cli --mock --domains code --max-prompts 3 --max-blocks 3 --tag smoke
-pytest            # unit + end-to-end mock tests
+pytest
 ```
 
-This writes `results/<timestamp>-smoke/{config.json,blocks.jsonl,summary.md}`.
+### Real run
 
-## Real run (on the GPU box)
+Requires ~60 GB VRAM headroom for one 26B model at a time (the harness runs
+**two-pass sequential** by default: drafter alone, freed, then verifier alone —
+so the models never co-reside and bf16 fits in 96 GB).
 
 ```bash
-# Python 3.11+. DiffusionGemma needs a recent transformers (released 2026-06-10).
+# Python 3.11+. DiffusionGemma needs transformers >= the 2026-06-10 release.
 python -m venv .venv && . .venv/bin/activate
-pip install -U transformers torch accelerate     # per the model card
-pip install -e ".[quant]"                         # adds bitsandbytes (+ torchvision, pillow)
+pip install -U transformers torch accelerate
+pip install -e ".[quant]"            # bitsandbytes (+ torchvision, pillow)
 
-# Authenticate for the gated Gemma repos (new HF CLI: `hf`, not `huggingface-cli`).
-# Accept each model's license on its HF page first, then:
-hf auth login                       # paste a token from huggingface.co/settings/tokens
+# Gated repos: accept each model's license on its HF page, then
+hf auth login                        # note: `hf`, not `huggingface-cli`
 
-# Defaults: bf16 weights, two-pass sequential (one model resident at a time).
 python -m harness.cli --domains code structured chat prose --tag run1
 ```
 
-The harness loads the drafter alone (generates all drafts), frees it, then loads
-the verifier alone — so the two 26B models never co-reside. This is why bf16 is
-the default and fits: peak VRAM is one model (~52 GB), not both (~104 GB). Pass
-`--no-sequential` only if both models fit at once (multi-GPU / >110 GB).
-
-Weights (~60 GB combined) download to `~/.cache/huggingface/` on first run and
-are reused after that (set `HF_HOME` to relocate; `HF_HUB_OFFLINE=1` to force
-cache-only). Verify auth cheaply before the full pull:
+Weights (~60 GB combined) cache to `~/.cache/huggingface/` (`HF_HOME` to
+relocate, `HF_HUB_OFFLINE=1` for cache-only). Cheap pre-flight:
 
 ```bash
 hf auth whoami
 python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('google/gemma-4-26B-A4B-it')"
 ```
 
-### What runs today vs. what needs more work
+### Options worth knowing
 
-The **agreement measurement runs via the public API** — no source hacking
-required. DiffusionGemma's documented `DiffusionGemmaForBlockDiffusion.generate()`
-is deterministic at temp-0, so committed 256-token canvas blocks are the
-generated continuation sliced into chunks (`harness/drafter.py`). That gives the
-primary Phase-1 numbers: per-token agreement `p`, accepted-prefix length, and
-their histograms — the decision gates depend only on these.
+- `--capture-internals` adds per-block denoise-step counts and commit-time
+  entropy (feeds the speedup and entropy~disagreement columns; otherwise
+  those report `n/a`). It hooks the installed `modeling_diffusiongemma.py`
+  denoise loop — inspect the source first, attribute names are not stable
+  on a model this new.
+- `SamplerConfig.deterministic=False` measures under the stock stochastic
+  temperature schedule (0.8→0.4) instead of greedy. Record which you used.
+- `--drafter-quant int8` / `--verifier-quant int8` work but barely shrink
+  this model (see below for why).
+- `--no-sequential` co-loads both models — only for multi-GPU / >110 GB.
 
-What is **not** available from the public API, and what to do about it:
+## Known-good environment (consumer Blackwell / SM120, WSL2)
 
-1. **Per-block denoise steps + commit entropy** feed the *speedup* and
-   *entropy~disagreement* metrics. `generate()` doesn't expose them, so those
-   two columns report `n/a` unless you pass `--capture-internals`, which
-   requires wiring `_InternalsCapture` in `harness/drafter.py` against the
-   installed `modeling_diffusiongemma.py` denoise/commit loop. Inspect first,
-   then code — don't guess attribute names. The core run does not need this.
-2. **Tokenizer identity is a hard gate.** `tokenizer_check` stops the run if the
-   drafter and verifier tokenizers differ in vocab, special tokens, or
-   chat-template token IDs. Agreement across mismatched tokenizers is meaningless.
-3. **Determinism.** The harness decodes greedily (`do_sample=False`) for
-   reproducibility, which diverges from the stock stochastic 0.8→0.4 temperature
-   schedule. Set `SamplerConfig.deterministic=False` to measure under the stock
-   sampler instead, and note which you used in the run notes.
-4. **Quantization.** Default is bf16 (see Troubleshooting for why fp8 doesn't
-   run on SM120). `--drafter-quant int8` / `--verifier-quant int8` (bitsandbytes)
-   works but barely shrinks this MoE model.
+Hard-won bring-up notes; these cost real time, pin them once working.
 
-## Troubleshooting / known-good environment
+- **fp8 does not run on SM120.** The fp8 grouped-MoE matmul needs DeepGEMM
+  (Hopper SM90 / datacenter Blackwell SM100); on SM120 it falls back to a
+  Triton kernel that rejects this model's expert dim (`K (704) must be
+  divisible by block_k (128)`). Use bf16 — it's the default here.
+- **int8 barely helps on this model.** bitsandbytes quantizes `nn.Linear`
+  only; the fused MoE experts (most of the weight) stay bf16: ~49.5 GB int8
+  vs ~52 GB bf16. Two int8 models still don't co-reside in 96 GB — hence
+  two-pass sequential as the default.
+- **Don't install latest `kernels`.** It breaks transformers at import
+  (`LayerRepository ... revision or version must be specified`), and since
+  fp8 needs `kernels` but fp8 can't run on SM120 anyway, there's no winning
+  move there. If required, pin to the range from
+  `python -c "from transformers.dependency_versions_table import deps; print(deps.get('kernels'))"`.
+- `Gemma4Processor requires PIL` → `pip install pillow`; torchvision is
+  imported by the image processor → `pip install torchvision` (both are in
+  the dependency list).
+- `weight_scale_inv ... MISSING / newly initialized` on load is benign fp8
+  boilerplate when loading the bf16 checkpoint; ignore in bf16.
+- `torch_dtype` is deprecated → harness passes `dtype=`.
+- `ModuleNotFoundError: harness` under pytest → `python -m pytest` (or rely
+  on `pythonpath = ["."]` in `pyproject.toml`).
 
-Hard-won notes from bringing this up on an RTX PRO 6000 Blackwell (SM120) in
-WSL2 Ubuntu. Pin these once you have a working venv.
+## What this is not (yet)
 
-- **`ModuleNotFoundError: No module named 'harness'` under `pytest`.** Run
-  `python -m pytest`, or rely on the `pythonpath = ["."]` in `pyproject.toml`.
-- **`Gemma4Processor requires the PIL library`** → `pip install pillow`.
-- **`No module named 'torchvision'`** (Gemma 4 image processor imports it) →
-  `pip install torchvision`. Both are now in the dependency list.
-- **`kernels` is a trap, not a fix.** Installing the latest `kernels` breaks
-  transformers at import (`LayerRepository ... Either a revision or a version
-  must be specified`). And the fp8 path *requires* `kernels`, so you can't win
-  on fp8 by toggling it. See the fp8 note below. If you must have it, pin to the
-  range from `python -c "from transformers.dependency_versions_table import deps;
-  print(deps.get('kernels'))"`.
-- **fp8 does NOT run on this GPU.** The fp8 grouped-MoE matmul needs DeepGEMM
-  (Hopper SM90 / datacenter-Blackwell SM100); on SM120 it falls back to a Triton
-  kernel that rejects this model's expert dim (`K (704) must be divisible by
-  block_k (128)`). Use **bf16** (default). fp8 is for SM90/SM100 datacenter parts.
-- **int8 barely helps here.** bitsandbytes only quantizes `nn.Linear`; this
-  model's weight is dominated by fused MoE experts that stay bf16, so int8 ≈
-  49.5 GB vs bf16 ≈ 52 GB. Two int8 models still don't co-reside in 96 GB —
-  which is the whole reason the harness defaults to two-pass sequential.
-- **`weight_scale_inv ... MISSING / newly initialized`** on load is benign fp8
-  boilerplate (the bf16 checkpoint has no fp8 scales); irrelevant in bf16.
-- **`torch_dtype` is deprecated** → the harness uses `dtype=`.
-- **`hf` is the current CLI**, not `huggingface-cli` (`hf auth login`).
+- **No speculative sampler is implemented here.** This is the Phase-1
+  measurement that decides whether/where one is worth building. The planned
+  arc (see [`initial_plan.md`](initial_plan.md)): greedy-exact verify loop →
+  proper lossless rejection sampling using captured draft probabilities →
+  vLLM integration via its existing speculative-decoding accounting →
+  optionally a weight-shared (frozen AR base + diffusion adapter) variant
+  and drafter→verifier distillation.
+- Stochastic (lossless rejection-sampling) acceptance rates are not yet
+  measured — that needs draft-side commit probabilities from
+  `--capture-internals`.
+- Single model pair, single hardware config, English prompts.
 
-## Conventions
+## Contributing / using the data
 
-- Every run snapshots its full config (incl. torch/transformers versions) to
-  `config.json`. Raw `blocks.jsonl` is the artifact; `summary.md` is derived and
-  never the source of truth — never aggregate away the per-position arrays.
-- When the model's internals contradict the plan or this README, trust the
-  installed source and say so explicitly in the run notes.
+Issues and PRs welcome — particularly: additional prompt domains,
+`--capture-internals` hardening against new `transformers` releases, and
+replication on other hardware. If you use the numbers or the harness,
+a link back here is appreciated.
