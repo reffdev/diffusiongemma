@@ -164,6 +164,18 @@ class RealDiffusionGemmaDrafter:
         pad_id = 0 if pad_id is None else pad_id
         continuation = continuation[: content_length(continuation, pad_id)]
 
+        # `tokens_per_forward` (committed content tokens per drafter forward/weight
+        # pass) is exposed in the public output. forward_passes = tokens / tpf, so
+        # per-block denoise (weight) passes = block_len / tpf — no source hook
+        # needed for the speedup metric. None if the field is absent.
+        tpf = None
+        try:
+            tpf_field = getattr(out, "tokens_per_forward", None)
+            if tpf_field is not None:
+                tpf = float(tpf_field[0])
+        except Exception:  # noqa: BLE001
+            tpf = None
+
         # Full diagnostics for the Pass-1 loop (fail-loud instrumentation).
         try:
             mem_allocated = int(torch.cuda.memory_allocated()) if torch.cuda.is_available() else None
@@ -176,10 +188,8 @@ class RealDiffusionGemmaDrafter:
             "prompt_prefix_present": seq[: len(plist)] == plist,
             "continuation_ids": list(continuation),
             "returned_ids": list(seq),
-            # Not exposed by the public generate(); see output_object fields and
-            # --capture-internals. We report None rather than fabricate.
-            "denoise_steps": None,
-            "stop_reason": None,
+            "tokens_per_forward": tpf,
+            "stop_reason": None,  # not exposed; see output_object fields
             "cuda_mem_allocated": mem_allocated,
             "output_object": _introspect_output(out),
             "gen_kwargs": {
@@ -196,11 +206,15 @@ class RealDiffusionGemmaDrafter:
             if not chunk:
                 break
             bi = start // block
+            # Per-block drafter weight passes from the public tokens_per_forward.
+            denoise = (max(1, round(len(chunk) / tpf)) if tpf and tpf > 0 else None)
             blocks.append(
                 DraftBlock(
                     block_index=bi,
                     draft_ids=chunk,
-                    denoise_steps=(capture.denoise_steps(bi) if capture else None),
+                    denoise_steps=denoise,
+                    # commit entropy still needs the source hook (output_scores
+                    # exposes nothing); None unless --capture-internals wires it.
                     commit_entropy=(capture.entropy(bi) if capture else None),
                 )
             )

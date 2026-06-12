@@ -1,0 +1,42 @@
+{
+  "_runtime": {
+    "mock": false,
+    "sequential": true,
+    "torch_version": "2.12.0+cu130",
+    "transformers_version": "5.11.0"
+  },
+  "capture_internals": false,
+  "domains": [
+    "code",
+    "structured",
+    "chat",
+    "prose"
+  ],
+  "max_blocks_per_prompt": 8,
+  "max_prompts_per_domain": null,
+  "mock": false,
+  "models": {
+    "device_map": "auto",
+    "drafter_model_id": "google/diffusiongemma-26B-A4B-it",
+    "drafter_quant": "bf16",
+    "hf_cache_dir": null,
+    "verifier_model_id": "google/gemma-4-26B-A4B-it",
+    "verifier_quant": "bf16"
+  },
+  "prompts_dir": "prompts",
+  "results_dir": "results",
+  "sampler": {
+    "block_size": 256,
+    "deterministic": true,
+    "entropy_bound": 0.1,
+    "max_denoise_steps": 48,
+    "stability_steps": 2,
+    "stopping_entropy_threshold": 0.005,
+    "temperature": 0.0
+  },
+  "seed": 0,
+  "sequential": true,
+  "tag": "run_final",
+  "torch_version": null,
+  "transformers_version": null
+}
