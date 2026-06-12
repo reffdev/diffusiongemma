@@ -1,0 +1,36 @@
+{
+  "_runtime": {
+    "mock": true,
+    "torch_version": "2.7.0+cu128",
+    "transformers_version": "4.56.0.dev0"
+  },
+  "domains": [
+    "code"
+  ],
+  "max_blocks_per_prompt": 3,
+  "max_prompts_per_domain": 3,
+  "mock": true,
+  "models": {
+    "device_map": "auto",
+    "drafter_model_id": "google/diffusiongemma-26B-A4B-it",
+    "drafter_quant": "fp8",
+    "hf_cache_dir": null,
+    "hold_both_resident": true,
+    "verifier_model_id": "google/gemma-4-26b-a4b-it",
+    "verifier_quant": "fp8"
+  },
+  "prompts_dir": "prompts",
+  "results_dir": "results",
+  "sampler": {
+    "block_size": 256,
+    "entropy_bound": 0.1,
+    "max_denoise_steps": 64,
+    "stability_steps": 2,
+    "stopping_entropy_threshold": 0.005,
+    "temperature": 0.0
+  },
+  "seed": 0,
+  "tag": "smoke",
+  "torch_version": null,
+  "transformers_version": null
+}

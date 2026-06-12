@@ -14,12 +14,6 @@ venv/
 .ruff_cache/
 .mypy_cache/
 
-# Results: the timestamped run dirs are large experimental artifacts.
-# Keep the directory but ignore its contents (tracked example runs can be
-# force-added with `git add -f` if you want a reference run in the repo).
-results/*
-!results/.gitkeep
-
 # Model caches / weights (never commit these)
 *.safetensors
 *.bin
