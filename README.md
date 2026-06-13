@@ -21,60 +21,79 @@ both 26B models on a single consumer-Blackwell GPU.
 200 prompts (50 per domain), greedy decoding both sides, bf16, single
 RTX PRO 6000 Blackwell (96 GB), June 2026 model releases:
 
-| Domain | Per-token agreement `p` | Accepted-prefix length (median) | Read |
-|---|---|---|---|
-| structured (JSON / extraction) | **0.99** | 36 | drafts accepted essentially whole — speculative decoding viable immediately |
-| code | **0.90** | 5 | viable with small blocks (~16–32 tokens); light distillation would compound quickly |
-| chat | **0.80** | 4 | marginal — block-size tuning required |
-| prose / creative | **0.65** | 2 | not viable stock; distillation-first territory |
+| Domain | Per-token agreement `p` | Accepted-prefix length (median) | Implied speedup (native canvas) | Read |
+|---|---|---|---|---|
+| structured (JSON / extraction) | **0.99** | 36 | **~8×** | the one clear speculative win — drafts accepted ~whole, big speedup |
+| code | **0.90** | 5 | 0.76× | high agreement but **< break-even** at every block size (see below) — a quality signal, not a speed win |
+| chat | **0.80** | 4 | 0.38× | below break-even at any block size |
+| prose / creative | **0.65** | 2 | 0.21× | not viable; distillation territory |
 
 Interpretation in brief: a speculative loop accepts the longest drafted
-prefix the verifier agrees with, so the accepted-prefix length (APL) — not
-raw agreement — is what buys speed. The ordering above is exactly the
-entropy ordering theory predicts: parallel drafting mines the predictable
-structure of text, so low-entropy domains (structured output, code) parallelize
-well and open-ended prose does not. Note that structured's APL is largely
-capped by content length — most drafts are accepted to the end of the output.
+prefix the verifier agrees with, so accepted-prefix length (APL) — not raw
+agreement — is what buys speed, and APL only converts to speedup if the
+drafter is cheap per accepted token. **Only structured clears that bar.** The
+agreement ordering follows the entropy ordering theory predicts (low-entropy
+structure parallelizes, open-ended prose doesn't), but high agreement on code
+does **not** translate to a speedup — the diffusion drafter spends ~11 denoise
+passes per block to land ~5 accepted tokens. Block-size tuning was tested and
+does **not** fix this (next section). structured's APL is content-capped — most
+drafts are accepted to the end of the (short) output.
 
 **Caveats that bound these numbers:** greedy (temperature-0) agreement only;
 50 prompts/domain; instruction-tuned checkpoints as released in June 2026;
 deterministic decoding rather than the stock stochastic temperature schedule
 (configurable — see below). Treat this as a measurement note, not a paper.
 
-## Block-size sweep: where each domain pays off
+## Block size: the "sweet spot" is a mirage (predicted, then refuted)
 
-The stock 256-token canvas is the wrong block size for everything but
-structured. Re-segmenting the per-position agreement data into smaller
-proposals (offline, from `blocks.jsonl`, via `scripts/block_size_sweep.py`)
-gives an implied speedup as a function of block size `B` — accepted tokens per
-weight pass, where **1.0 = autoregressive break-even**:
+An offline re-segmentation of the agreement data (`scripts/block_size_sweep.py`)
+*predicted* that smaller proposal blocks would rescue code/chat — e.g. code 4.5×
+at `B≈16` vs 0.76× at the stock 256. **Native runs at `B`=16/32 refuted it.**
+Driving the model at a true small canvas (`SamplerConfig.block_size` →
+`config.canvas_length`) and measuring (`scripts/validate_block_size.py`):
 
-| B | structured | code | chat | prose |
+| domain | sweep predicted @16 | **measured @16** | **measured @32** | measured @256 |
 |---|---|---|---|---|
-| 4 | 2.9 | 2.6 | 1.9 | 1.05 |
-| 8 | 4.6 | 3.8 | 2.2 | 0.98 |
-| 16 | 6.3 | **4.5** | 2.1 | 0.72 |
-| 32 | 7.5 | 4.2 | 1.5 | 0.52 |
-| 64 | 8.0 | 2.9 | 0.9 | 0.35 |
-| 256 | **8.3** | 0.76 | 0.38 | 0.21 |
+| code | 4.5× | **0.29×** | 0.97× | 0.76× |
+| chat | 2.1× | **0.16×** | 0.33× | 0.38× |
+| prose | 0.72× | **0.08×** | 0.16× | 0.21× |
 
-Peak per domain: **structured 8.3× (large B), code 4.5× @ B≈16, chat 2.2× @
-B≈8, prose ~1.05× @ B≈4.** Tuning the block size flips code from a 0.76× *loss*
-at the stock 256 to a 4.5× win; only prose stays marginal. structured rises
-with `B` and plateaus because its drafts are accepted to the end of the (short)
-output — content-capped, so longer structured outputs would push it higher, not
-lower.
+**No domain crosses break-even at any block size.** The sweep's fatal assumption
+was that denoise cost scales with block size; empirically the diffusion model's
+denoise-step count is **roughly canvas-independent** (~11–12 passes/block for
+`B`≥32, ballooning to ~24 at `B`=16 from lost lookahead context). So shrinking
+the canvas commits fewer tokens for the same iteration budget — efficiency
+*collapses*. The parallelism that makes diffusion fast comes from the large
+canvas amortizing those iterations across many tokens; small blocks throw it
+away. **structured (large canvas, ~8×) is the only speculative win, and
+block-size tuning cannot create others.**
 
-**The two-pass floor caveat.** Every speculative round costs at least two weight
-passes — one drafter denoise pass and one verifier pass — so realized speedup at
-block size `B` cannot exceed `B/2` (you accept at most `B` tokens per round).
-The sweep holds total denoise cost constant (it re-segments the drafter's
-*existing* trajectory rather than re-canvassing after each rejection), so it
-ignores that floor and **overstates the smallest blocks**: any entry above `B/2`
-— e.g. structured and code at `B=4`, structured at `B=8` — is an optimistic
-upper bound. Read the *shape* and the mid-range optima (`B≈8–16`), not the
-small-`B` tail. Validate empirically by running with `SamplerConfig.block_size`
-set to a candidate `B` and reading the real `tokens_per_forward`.
+## Single-model self-verify: you may not need Gemma 4 at all
+
+DiffusionGemma's encoder runs causally (it does prefill), and that pathway plus
+the model's own `lm_head` can be driven as an autoregressive next-token LM
+(`harness/causal.py`) — so DiffusionGemma can **verify its own drafts**, no
+second model. Pointing the existing teacher-forcing scorer at this causal mode
+(`scripts/causal_self_agreement.py`) and re-scoring the same drafts:
+
+| domain | `p_self` (causal scores its own drafts) | `p` vs Gemma 4 |
+|---|---|---|
+| structured | **0.995** | 0.993 |
+| code | 0.916 | 0.899 |
+| chat | 0.821 | 0.796 |
+| prose | 0.678 | 0.647 |
+
+`p_self ≥ p` in every domain — the model agrees with its own drafts at least as
+well as the external verifier. And a 200-prompt standalone-quality eval
+(`scripts/causal_quality_gen.py` + `causal_quality_eval.py`) is **automated-PASS-
+consistent**: causal vs Gemma 4 structured normalized-match **0.98**, causal code
+syntax-validity **0.96** (≥ Gemma 4's 0.88), ~0 degeneracy (1/200), and causal
+self-terminates as well as Gemma 4 (cap-hits reflect long answers, which Gemma 4
+produces *more* of). Final code/chat/prose content-quality is a manual read of
+the side-by-side artifacts and is **not yet concluded** — but the verifier role
+(teacher-forced) is solid regardless. This makes a **single-model speculative
+loop** (one DiffusionGemma: diffusion-mode drafts + causal-mode verify) the
+front-runner, and sidesteps the dead-end quantization/serving routes below.
 
 ## How it's measured
 
@@ -112,13 +131,16 @@ harness/            measurement package
   chat.py           render the shared chat template once, reuse token IDs
   drafter.py        DiffusionGemma generate + slice into committed blocks
   verifier.py       Gemma 4 teacher-forcing pass
+  causal.py         drive DiffusionGemma's encoder+lm_head as a causal LM (self-verify)
   metrics.py        agreement metrics (pure, fully tested)
   results_io.py     timestamped run dir, blocks.jsonl, summary.md
   cli.py            orchestration entry point
 prompts/<domain>.jsonl   versioned prompt sets (code, structured, chat, prose)
 results/<date>-<tag>/    config.json + blocks.jsonl + summary.md per run
-scripts/            sanity_check, probe_drafts, recompute_summary
-tests/              model-free unit + mock end-to-end tests
+scripts/            block_size_sweep + validate_block_size (block-size study),
+                    causal_self_agreement + causal_quality_gen/eval (self-verify),
+                    compare_runs, recompute_summary, sanity_check, probe_*
+tests/              model-free unit + mock end-to-end tests (run: `pytest`)
 ```
 
 ## Reproducing
@@ -165,7 +187,7 @@ python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained
   `tokens_per_forward` output field — no source hook needed.
 - `--capture-internals` adds per-position commit-time entropy, which feeds the
   **entropy~disagreement** column (otherwise `n/a`). It hooks the installed
-  `modeling_diffusiongemma.py` denoise loop — inspect the source first,
+  `modeling_diffusion_gemma.py` denoise loop — inspect the source first,
   attribute names are not stable on a model this new.
 - `SamplerConfig.deterministic=False` measures under the stock stochastic
   temperature schedule (0.8→0.4) instead of greedy. Record which you used.
@@ -195,22 +217,35 @@ Hard-won bring-up notes; these cost real time, pin them once working.
   the dependency list).
 - `weight_scale_inv ... MISSING / newly initialized` on load is benign fp8
   boilerplate when loading the bf16 checkpoint; ignore in bf16.
+- **NVFP4 doesn't load via Transformers.** The published NVFP4 checkpoints are
+  `quant_method: modelopt`, which Transformers 5.11 has no quantizer for — it
+  *silently skips quantization and loads random experts*. A bare `nvidia-modelopt`
+  install doesn't register a Transformers quantizer either (and it can *downgrade*
+  transformers, breaking DiffusionGemma — keep the bf16 venv clean). pip vLLM
+  also lacks a native DiffusionGemma model (its generic Transformers backend
+  crashes on the denoiser's forward signature). Only the `vllm/vllm-openai:gemma`
+  Docker image loads NVFP4 — a server, not the offline API. Single-model
+  self-verify made this route unnecessary for the research question.
 - `torch_dtype` is deprecated → harness passes `dtype=`.
 - `ModuleNotFoundError: harness` under pytest → `python -m pytest` (or rely
   on `pythonpath = ["."]` in `pyproject.toml`).
 
 ## What this is not (yet)
 
-- **No speculative sampler is implemented here.** This is the Phase-1
-  measurement that decides whether/where one is worth building. The planned
-  arc (see [`initial_plan.md`](initial_plan.md)): greedy-exact verify loop →
-  proper lossless rejection sampling using captured draft probabilities →
-  vLLM integration via its existing speculative-decoding accounting →
-  optionally a weight-shared (frozen AR base + diffusion adapter) variant
-  and drafter→verifier distillation.
-- Stochastic (lossless rejection-sampling) acceptance rates are not yet
-  measured — that needs draft-side commit probabilities from
-  `--capture-internals`.
+- **No speculative sampler is implemented here.** This is the measurement that
+  decides whether/where one is worth building. What it has decided so far:
+  speculative diffusion is a **narrow win — structured/low-entropy only** (~8×);
+  block-size tuning does *not* extend that to code/chat/prose; and a
+  **single-model self-verify** loop (one DiffusionGemma drafting + self-verifying)
+  is the front-runner architecture, no second model or exotic quant needed.
+- **Next** (see [`initial_plan.md`](initial_plan.md) for the original arc): a
+  realized tokens/sec measurement (the speedups here are *implied* — accepted
+  tokens per weight pass — not wall-clock), then the self-verify loop scoped to
+  structured, then optionally lossless rejection sampling using captured draft
+  logprobs. Distillation (for the failed domains) and the NVFP4/Docker serving
+  route are parked.
+- The causal-mode standalone **content-quality** call (PASS vs quality-floor) is
+  pending a manual read of the side-by-side artifacts.
 - Single model pair, single hardware config, English prompts.
 
 ## Contributing / using the data

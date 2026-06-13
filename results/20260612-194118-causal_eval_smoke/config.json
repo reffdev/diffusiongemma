@@ -1,0 +1,11 @@
+{
+  "domains": [
+    "code",
+    "structured"
+  ],
+  "max_new": 320,
+  "eos_id": 1,
+  "stop": "causal: eos=1 or max_new (107 excluded); gemma4: native generate",
+  "drafter_path": "google/diffusiongemma-26B-A4B-it",
+  "verifier_path": "google/gemma-4-26B-A4B-it"
+}
